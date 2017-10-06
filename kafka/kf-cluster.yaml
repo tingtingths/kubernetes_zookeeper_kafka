@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: kf-svc
+    labels:
+        app: kf-svc
+spec:
+    selector:
+        app: kf
+    clusterIP: None
+    ports:
+        - port: 9092
+          name: broker
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: kf-pdb
+spec:
+  selector:
+    matchLabels:
+      app: kf
+  minAvailable: 1
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: kf
+spec:
+  serviceName: kf-svc
+  replicas: 2
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: kafka
+      annotations:
+    spec:
+      containers:
+      - name: kafka
+        image: tingtingths/kafka:0.0.2
+        ports:
+        - containerPort: 9092
+        resources:
+          requests:
+            cpu: 100m
+            memory: 384Mi
+        volumeMounts:
+        - mountPath: "/kflog"
+          name: kflog
+          allowPrivilegeEscalation: true
+        - mountPath: "/data"
+          name: data
+      volumes:
+      - name: kflog
+        hostPath:
+          path: /var/log/kafka/logs
+          type: DirectoryOrCreate
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+            requests:
+                storage: 200Mi
